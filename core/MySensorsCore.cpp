@@ -78,7 +78,7 @@ void _process(void)
 
 #if defined(__linux__)
 	// To avoid high cpu usage
-	usleep(10000); // 10ms
+	usleep(20000); // 20ms
 #endif
 #if defined(MY_DEBUG_VERBOSE_CORE)
 	processLock--;

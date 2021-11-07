@@ -206,6 +206,7 @@ public:
 private:
 	int _sock; //!< @brief Network socket file descriptor.
 	IPAddress _srcip; //!< @brief Local ip to bind to.
+	bool _connected; //!< @brief Connection established flag
 };
 
 #endif

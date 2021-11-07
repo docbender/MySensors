@@ -33,11 +33,11 @@
 #include <errno.h>
 #include "log.h"
 
-EthernetClient::EthernetClient() : _sock(-1)
+EthernetClient::EthernetClient() : _sock(-1), _connected(false)
 {
 }
 
-EthernetClient::EthernetClient(int sock) : _sock(sock)
+EthernetClient::EthernetClient(int sock) : _sock(sock), _connected(false)
 {
 }
 
@@ -106,6 +106,8 @@ int EthernetClient::connect(const char* host, uint16_t port)
 		freeaddrinfo(localinfo); // all done with this structure
 	}
 
+	_connected = true;
+
 	return 1;
 }
 
@@ -167,10 +169,21 @@ int EthernetClient::available()
 int EthernetClient::read()
 {
 	uint8_t b;
-	if ( recv(_sock, &b, 1, MSG_DONTWAIT) > 0 ) {
+	ssize_t nread = recv(_sock, &b, 1, MSG_DONTWAIT);
+	if (nread > 0) {
 		// recv worked
 		return b;
+	} else if (nread == 0) {
+		logError("read: connection closed by remote host\n");
+		close();
+		return -1;
 	} else {
+		int err = errno;
+		if (!((err == EAGAIN) || (err == EWOULDBLOCK)))
+       		{
+          		printf("read: %s\n", strerror(errno));
+			return -1;
+       		}
 		// No data available
 		return -1;
 	}
@@ -178,7 +191,14 @@ int EthernetClient::read()
 
 int EthernetClient::read(uint8_t *buf, size_t bytes)
 {
-	return recv(_sock, buf, bytes, MSG_DONTWAIT);
+	ssize_t nread = recv(_sock, buf, bytes, MSG_DONTWAIT);
+	if (nread == 0) {
+		logError("read: connection closed by remote host\n");
+		close();
+		return -1;
+	} else {
+		return nread;
+	}
 }
 
 int EthernetClient::peek()
@@ -276,11 +296,13 @@ uint8_t EthernetClient::status()
 
 uint8_t EthernetClient::connected()
 {
-	return status() == ETHERNETCLIENT_W5100_ESTABLISHED || available();
+	return _connected || available();
+//	return status() == ETHERNETCLIENT_W5100_ESTABLISHED || available();
 }
 
 void EthernetClient::close()
 {
+	_connected = false;
 	if (_sock != -1) {
 		::close(_sock);
 		_sock = -1;
